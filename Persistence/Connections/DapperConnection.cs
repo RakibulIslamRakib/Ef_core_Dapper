@@ -9,10 +9,10 @@ using System.Data.SqlClient;
 
 namespace Persistence.Connections
 {
-    public class ApplicationReadDbConnection :IApplicationReadDbConnection, IDisposable
+    public class DapperConnection :IDapperConnection, IDisposable
     {
         private readonly IDbConnection connection;
-        public ApplicationReadDbConnection(IConfiguration configuration)
+        public DapperConnection(IConfiguration configuration)
         {
             connection = new SqlConnection(configuration.GetConnectionString("DefaultConnection"));
         }

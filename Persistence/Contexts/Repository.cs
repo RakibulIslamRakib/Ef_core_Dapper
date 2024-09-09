@@ -1,20 +1,15 @@
 ﻿using Domain.Interfaces;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Persistence.Contexts
 {
     public class Repository<T> : IRepository<T> where T : class
     {
-        private readonly ApplicationDbContext _context;
+        private readonly DbContext _context;
         private readonly DbSet<T> _dbSet;
 
-        public Repository(ApplicationDbContext context)
+        public Repository(DbContext context)
         {
             _context = context;
             _dbSet = _context.Set<T>();

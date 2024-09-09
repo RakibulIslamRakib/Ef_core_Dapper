@@ -3,7 +3,7 @@ using System.Data;
 
 namespace Domain.Interfaces
 {
-    public interface IApplicationReadDbConnection
+    public interface IDapperConnection
     {
         Task<int> ExecuteAsync(string sql, object param = null, IDbTransaction transaction = null, CancellationToken cancellationToken = default);
         Task<IReadOnlyList<T>> QueryAsync<T>(string sql, object param = null, IDbTransaction transaction = null, CancellationToken cancellationToken = default);
