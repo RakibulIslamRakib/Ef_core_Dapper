@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Data.Common;
 using WebApi.DTOs;
+using WebApi.Services;
 
 namespace WebApi.Controllers
 {
@@ -11,15 +12,15 @@ namespace WebApi.Controllers
     [Route("[controller]")]
     public class EmployeeController : ControllerBase
     {
-        public IApplicationDbContext _dbContext { get; }
-        public IApplicationReadDbConnection _readDbConnection { get; }
-        public IApplicationWriteDbConnection _writeDbConnection { get; }
+        private readonly IApplicationReadDbConnection _readDbConnection;
+        private readonly IEmployeeService _employeeService;
+        private readonly IDepartmentService _departmentService;
 
-        public EmployeeController(IApplicationDbContext dbContext, IApplicationReadDbConnection readDbConnection, IApplicationWriteDbConnection writeDbConnection)
+        public EmployeeController( IApplicationReadDbConnection readDbConnection, IEmployeeService employeeService, IDepartmentService departmentService)
         {
-            _dbContext = dbContext;
             _readDbConnection = readDbConnection;
-            _writeDbConnection = writeDbConnection;
+            _employeeService = employeeService;
+            _departmentService = departmentService;
         }
 
         [HttpGet]
@@ -33,50 +34,51 @@ namespace WebApi.Controllers
         [HttpPost]
         public async Task<IActionResult> AddNewEmployeeWithDepartment(EmployeeDto employeeDto)
         {
-            _dbContext.Connection.Open();
-            using (var transaction = _dbContext.Connection.BeginTransaction())
+            if (employeeDto.Name == null || employeeDto.Department.Name == null)
+                return BadRequest("Name cannot be null or empty");
+            try
             {
-                try
+                // Check if Department already exists (by Name)
+                var department = await _departmentService.GetDepartmentExistsByNameAsync(employeeDto.Department.Name);
+
+                if (department == null)
                 {
-                    _dbContext.Database.UseTransaction(transaction as DbTransaction);
-                    //Check if Department Exists (By Name)
-                    bool DepartmentExists = await _dbContext.Departments.AnyAsync(a => a.Name == employeeDto.Department.Name);
-                    if (DepartmentExists)
-                    {
-                        throw new Exception("Department Already Exists");
-                    }
-                    //Add Department
-                    var addDepartmentQuery = $"INSERT INTO Departments(Name,Description) VALUES('{employeeDto.Department.Name}','{employeeDto.Department.Description}');SELECT CAST(SCOPE_IDENTITY() as int)";
-                    var departmentId = await _writeDbConnection.QuerySingleAsync<int>(addDepartmentQuery, transaction: transaction);
-                    //Check if Department Id is not Zero.
-                    if (departmentId == 0)
-                    {
-                        throw new Exception("Department Id");
-                    }
-                    //Add Employee
-                    var employee = new Employee
-                    {
-                        DepartmentId = departmentId,
-                        Name = employeeDto.Name,
-                        Email = employeeDto.Email
-                    };
-                    await _dbContext.Employees.AddAsync(employee);
-                    await _dbContext.SaveChangesAsync(default);
-                    //Commmit
-                    transaction.Commit();
-                    //Return EmployeeId
-                    return Ok(employee.Id);
+                     department = new Department
+                       {
+                            Name = employeeDto.Department.Name,
+                            Description = employeeDto.Department.Description
+                       };
+
+                    await _departmentService.AddDepartmentAsync(department);
                 }
-                catch (Exception)
+
+ 
+
+                // Check if the departmentId is valid (not zero)
+                if (department.Id == 0)
                 {
-                    transaction.Rollback();
-                    throw;
+                    throw new Exception("Failed to insert Department");
                 }
-                finally
+
+                // Add Employee using Employee Service
+                var employee = new Employee
                 {
-                    _dbContext.Connection.Close();
-                }
+                    DepartmentId = department.Id,
+                    Name = employeeDto.Name,
+                    Email = employeeDto.Email
+                };
+
+                await _employeeService.AddEmployeeAsync(employee);
+
+                // Return the created employee's ID
+                return Ok(employee.Id);
+            }
+            catch (Exception ex)
+            {
+                // Log exception if necessary
+                return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
+
     }
 }

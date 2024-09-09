@@ -14,5 +14,9 @@ namespace Persistence.Contexts
         public DbSet<Employee> Employees { get; set; }
         public DbSet<Department> Departments { get; set; }
         public IDbConnection Connection => Database.GetDbConnection();
+        public new async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            return await base.SaveChangesAsync(cancellationToken);
+        }
     }
 }

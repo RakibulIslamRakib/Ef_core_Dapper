@@ -1,5 +1,6 @@
 ﻿using Dapper;
 using Domain.Interfaces;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Data;
@@ -8,7 +9,7 @@ using System.Data.SqlClient;
 
 namespace Persistence.Connections
 {
-    public class ApplicationReadDbConnection : IApplicationReadDbConnection, IDisposable
+    public class ApplicationReadDbConnection :IApplicationReadDbConnection, IDisposable
     {
         private readonly IDbConnection connection;
         public ApplicationReadDbConnection(IConfiguration configuration)
@@ -26,6 +27,11 @@ namespace Persistence.Connections
         public async Task<T> QuerySingleAsync<T>(string sql, object param = null, IDbTransaction transaction = null, CancellationToken cancellationToken = default)
         {
             return await connection.QuerySingleAsync<T>(sql, param, transaction);
+        }
+
+        public async Task<int> ExecuteAsync(string sql, object param = null, IDbTransaction transaction = null, CancellationToken cancellationToken = default)
+        {
+            return await connection.ExecuteAsync(sql, param, transaction);
         }
         public void Dispose()
         {
