@@ -1,7 +1,6 @@
-﻿
-using System.Data;
+﻿using System.Data;
 
-namespace Domain.Interfaces
+namespace Persistence.Interfaces
 {
     public interface IDapperConnection
     {

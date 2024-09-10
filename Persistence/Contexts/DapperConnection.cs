@@ -1,15 +1,13 @@
 ﻿using Dapper;
-using Domain.Interfaces;
-using Microsoft.EntityFrameworkCore;
+using Persistence.Interfaces;
 using Microsoft.Extensions.Configuration;
-using System;
 using System.Data;
 using System.Data.SqlClient;
 
 
-namespace Persistence.Connections
+namespace Persistence.Contexts
 {
-    public class DapperConnection :IDapperConnection, IDisposable
+    public class DapperConnection : IDapperConnection, IDisposable
     {
         private readonly IDbConnection connection;
         public DapperConnection(IConfiguration configuration)
