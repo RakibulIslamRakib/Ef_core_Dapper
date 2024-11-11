@@ -15,44 +15,157 @@ namespace Persistence.Contexts
             _dbSet = _context.Set<T>();
         }
 
-        public async Task<IEnumerable<T>> GetAllAsync()
+        protected string GetFullErrorTextAndRollbackEntityChanges(DbUpdateException exception)
         {
-            return await _dbSet.ToListAsync();
+
+            if (_context is DbContext dbContext)
+            {
+                var entries = dbContext.ChangeTracker.Entries()
+                    .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified).ToList();
+
+                entries.ForEach(entry => entry.State = EntityState.Unchanged);
+            }
+
+            _context.SaveChanges();
+            return exception.ToString();
         }
 
+        public IQueryable<T> GetAll()
+        {
+            return _dbSet;
+        }
         public async Task<T> GetByIdAsync(object id)
         {
             return await _dbSet.FindAsync(id);
         }
 
-        public async Task AddAsync(T entity)
+        public async Task<int> InsertAsync(T entity)
         {
-            await _dbSet.AddAsync(entity);
+            if (entity == null)
+                throw new ArgumentNullException(nameof(entity));
+
+            try
+            {
+                await _dbSet.AddAsync(entity);
+                return await SaveChangesAsync();
+            }
+            catch (DbUpdateException exception)
+            {
+                throw new DbUpdateException(GetFullErrorTextAndRollbackEntityChanges(exception), exception);
+            }
+        }
+
+        public async Task<int> InsertAsync(IEnumerable<T> entities)
+        {
+            if (entities == null)
+                throw new ArgumentNullException(nameof(entities));
+
+            try
+            {
+                await _dbSet.AddRangeAsync(entities);
+               return  await SaveChangesAsync();
+            }
+            catch (DbUpdateException exception)
+            {
+
+                throw new DbUpdateException(GetFullErrorTextAndRollbackEntityChanges(exception), exception);
+            }
         }
 
         public async Task UpdateAsync(T entity)
         {
-            _dbSet.Attach(entity);
-            _context.Entry(entity).State = EntityState.Modified;
+            if (entity == null)
+                throw new ArgumentNullException(nameof(entity));
+
+            try
+            {
+                _dbSet.Update(entity);
+                await SaveChangesAsync();
+            }
+            catch (DbUpdateException exception)
+            {
+                throw new DbUpdateException(GetFullErrorTextAndRollbackEntityChanges(exception), exception);
+            }
+        }
+
+        public async Task UpdateAsync(IEnumerable<T> entities)
+        {
+            if (entities == null)
+                throw new ArgumentNullException(nameof(entities));
+
+            try
+            {
+                _dbSet.UpdateRange(entities);
+                await SaveChangesAsync();
+            }
+            catch (DbUpdateException exception)
+            {
+
+                throw new DbUpdateException(GetFullErrorTextAndRollbackEntityChanges(exception), exception);
+            }
         }
 
         public async Task DeleteAsync(object id)
         {
+            if (id == null)
+                throw new ArgumentNullException(nameof(id));
+
             var entity = await GetByIdAsync(id);
             if (entity != null)
+            {             
+                try
+                {
+                    _dbSet.Remove(entity);
+                    await SaveChangesAsync();
+                }
+                catch (DbUpdateException exception)
+                {
+
+                    throw new DbUpdateException(GetFullErrorTextAndRollbackEntityChanges(exception), exception);
+                }
+            }             
+        }
+
+        public  void Delete(IEnumerable<T> entities)
+        {
+            if (entities == null)
+                throw new ArgumentNullException(nameof(entities));
+
+            try
             {
-                _dbSet.Remove(entity);
+                _dbSet.RemoveRange(entities);
+                _context.SaveChanges();
+            }
+            catch (DbUpdateException exception)
+            {
+                throw new DbUpdateException(GetFullErrorTextAndRollbackEntityChanges(exception), exception);
             }
         }
 
-        public async Task SaveChangesAsync()
+        public async Task<int> SaveChangesAsync()
         {
-            await _context.SaveChangesAsync();
+            return await _context.SaveChangesAsync();
         }
 
-        public async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate)
+        public IQueryable<T> Find(Expression<Func<T, bool>> predicate)
         {
-            return await _dbSet.Where(predicate).ToListAsync();
+            if (predicate == null)
+            {
+                return _dbSet; 
+            }
+            return  _dbSet.Where(predicate);
+        }
+
+        public async Task<IEnumerable<T>> GetPagedAsync(int pageIndex, int pageSize, Expression<Func<T, bool>> predicate = null)
+        {
+            IQueryable<T> query = _dbSet;
+
+            if (predicate != null)
+            {
+                query = query.Where(predicate);
+            }
+
+            return await query.Skip((pageIndex - 1) * pageSize).Take(pageSize).ToListAsync();
         }
     }
 }
